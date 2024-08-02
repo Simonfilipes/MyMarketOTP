@@ -35,7 +35,9 @@ async def add_pokemon(pokemon: Pokemon, user: User = Depends(get_current_active_
     if v := validate.validate_pokemon(pokemon):
         raise HTTPException(400, detail=v)
     
-    pyrodb.insert_pokemon_to_post(user_email, pokemon)
+    if v := pyrodb.insert_pokemon_to_post(user_email, pokemon):
+        raise HTTPException(400, detail=v)
+        
     return {"status": 200, "detail": "Pokemon added to the post succesfully", 'user_data': user}
 
 
@@ -51,7 +53,9 @@ async def add_item(item: Item, user: User = Depends(get_current_active_user)) ->
     if v := validate.validate_items(item):
         raise HTTPException(400, detail=v)
     
-    pyrodb.insert_item_to_post(user_email, item)
+    if v := pyrodb.insert_item_to_post(user_email, item):
+        raise HTTPException(400, detail=v)
+        
     return {"status": 200, "detail": "Item added to the post succesfully"}
 
 # Get posts
@@ -77,3 +81,12 @@ def get_all_posts():
         raise HTTPException(status_code=404, detail="Posts not found")
         
     return posts
+
+@router.delete('/{identifier}')
+async def delete_post(identifier: str, user: User = Depends(get_current_active_user)):
+    user_email = user.model_dump()['email']
+    if v := validate.validate_post(identifier, user):
+        raise HTTPException(400, detail=v)
+
+    pyrodb.delete_post(identifier, user_email)
+    return {"status": 200, "detail": "Post deleted succesfully"}

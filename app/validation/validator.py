@@ -144,10 +144,4 @@ class Validate():
         if not post_identifier in user_data['posts']:
             return "You don't have access to this post"
 
-        post_data = get_post_by_identifier(post_identifier).model_dump()
-        qnt = post_data['elements']
-        if qnt >= 3:
-            return "You can't add more than 3 elements on a post"
-
-        increase_qnt(post_identifier, qnt)
     

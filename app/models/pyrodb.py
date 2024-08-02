@@ -86,12 +86,24 @@ def insert_pokemon_to_post(user_email: str, pokemon: Pokemon):
     insert_pokemon = PokemonInDB(owner=user_email, **pokemon.model_dump()).model_dump()
     
     pokemons.insert_one(insert_pokemon)
+    post_data = get_post_by_identifier(pokemon['identifier']).model_dump()
+    qnt = post_data['elements']
+    if qnt >= 3:
+        return "You can't add more than 3 elements on a post"
+
+    increase_qnt(post_identifier, qnt)
     # append_post_to_owner(user_email)
 
 def insert_item_to_post(user_email: str, item: Item):
     insert_item = ItemInDB(owner=user_email, **item.model_dump()).model_dump()
     
     items.insert_one(insert_item)
+    post_data = get_post_by_identifier(item['identifier']).model_dump()
+    qnt = post_data['elements']
+    if qnt >= 3:
+        return "You can't add more than 3 elements on a post"
+
+    increase_qnt(post_identifier, qnt)
     # append_post_to_owner(user_email)
 
 # Função para converter MongoDB ObjectId para string
@@ -178,3 +190,37 @@ def get_all_posts():
     post_models = [PostDetails(**post) for post in posts_serialized]
 
     return post_models
+
+def delete_post(identifier: str, user_email: str):
+    # Verificar se o post existe
+    post = posts.find_one({'identifier': identifier})
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    # Verificar se o usuário é o dono do post
+    if post['owner'] != user_email:
+        raise HTTPException(status_code=403, detail="You are not authorized to delete this post")
+
+    # Remover o post da lista de posts do usuário
+    user_posts = get_user(user_email).posts
+    user_posts.remove(identifier)
+    posts.update_one({'identifier': identifier}, {'$set': {'posts': user_posts}})
+
+    post_items = items.find({'identifier': identifier})
+    post_pokemons = pokemons.find({'identifier': identifier})
+
+    for item in post_items:
+        items.delete_one(item)
+
+    for pokemon in post_pokemons:
+        pokemons.delete_one(pokemon)
+    
+    # Remover o post da lista de posts de todos os usuários
+    for user in users.find():
+        if identifier in user['posts']:
+            user_posts = user['posts']
+            user_posts.remove(identifier)
+            users.update_one({'email': user['email']}, {'$set': {'posts': user_posts}})
+
+    # Remover o post do banco de dados
+    posts.delete_one({'identifier': identifier})
